@@ -19,8 +19,9 @@ import android.widget.EditText;
 import android.widget.TimePicker;
 
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class MainActivity extends AppCompatActivity {
@@ -29,6 +30,7 @@ public class MainActivity extends AppCompatActivity {
     final String WORKHOURS = "08:15";
     private AppBarConfiguration appBarConfiguration;
     private ActivityMainBinding binding;
+    boolean changeState = true;
 
 
     @Override
@@ -45,7 +47,7 @@ public class MainActivity extends AppCompatActivity {
         EditText lunchtime = findViewById(R.id.lunch_time);
         EditText endtime = findViewById(R.id.end_time);
         EditText overtime = findViewById(R.id.overtime);
-        TimePickerDialog timePickerDialog;
+
 
         starttime.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -188,89 +190,103 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateFields(EditText starttime, EditText lunchtime, EditText endtime, EditText overtime, boolean calcOver) throws ParseException {
-        if ((starttime.getText().toString().equals("00:01"))
-                && !(endtime.getText().toString().equals("00:01"))
-                && !(overtime.getText().toString().equals("00:01"))){
+        if (changeState){
+            if ((starttime.getText().toString().equals("00:01"))
+                    && !(endtime.getText().toString().equals("00:01"))
+                    && !(overtime.getText().toString().equals("00:01"))){
 
-            calculateStartTime(starttime, lunchtime, endtime, overtime);
-        } else if (!(starttime.getText().toString().equals("00:01"))
-                && (endtime.getText().toString().equals("00:01"))
-                && !(overtime.getText().toString().equals("00:01"))){
+                calculateStartTime(starttime, lunchtime, endtime, overtime);
+            } else if (!(starttime.getText().toString().equals("00:01"))
+                    && (endtime.getText().toString().equals("00:01"))
+                    && !(overtime.getText().toString().equals("00:01"))){
 
-            calculateEndTime(starttime, lunchtime, endtime, overtime);
-        } else if (!(starttime.getText().toString().equals("00:01"))
-                && !(endtime.getText().toString().equals("00:01"))
-                && (overtime.getText().toString().equals("00:01"))){
-
-            calculateOverTime(starttime, lunchtime, endtime, overtime);
-        } else if (!(starttime.getText().toString().equals("00:01"))
-                && !(endtime.getText().toString().equals("00:01"))
-                && !(overtime.getText().toString().equals("00:01"))){
-            if (calcOver) {
-                calculateOverTime(starttime, lunchtime, endtime, overtime);
-            }
-            if (!calcOver){
                 calculateEndTime(starttime, lunchtime, endtime, overtime);
+            } else if (!(starttime.getText().toString().equals("00:01"))
+                    && !(endtime.getText().toString().equals("00:01"))
+                    && (overtime.getText().toString().equals("00:01"))){
+
+                calculateOverTime(starttime, lunchtime, endtime, overtime);
+            } else if (!(starttime.getText().toString().equals("00:01"))
+                    && !(endtime.getText().toString().equals("00:01"))
+                    && !(overtime.getText().toString().equals("00:01"))){
+                if (calcOver) {
+                    calculateOverTime(starttime, lunchtime, endtime, overtime);
+                }
+                if (!calcOver){
+                    calculateEndTime(starttime, lunchtime, endtime, overtime);
+                }
             }
         }
     }
 
-    String convertSecondsToHMmSs(long ms) {
-        long seconds = ms / 1000;
-        long s = seconds % 60;
-        long m = (seconds / 60) % 60;
-        long h = (seconds / (60 * 60)) % 24;
+    String convertMinutesToHMmSs(long minutes) {
+        long m = minutes % 60;
+        long h = (minutes / 60 ) % 24;
         return String.format("%d:%02d",h,m);
     }
     private void calculateStartTime(EditText starttime, EditText lunchtime, EditText endtime, EditText overtime) throws ParseException {
-        SimpleDateFormat format = new SimpleDateFormat("HH:mm");
-        Date start = format.parse(String.valueOf(starttime.getText()));
-        Date lunch = format.parse(String.valueOf(lunchtime.getText()));
-        Date end = format.parse(String.valueOf(endtime.getText()));
-        Date over = format.parse(String.valueOf(overtime.getText()));
-        Date workhours = format.parse(WORKHOURS);
-        Date midnight = format.parse("00:00");
+        DateTimeFormatter format = DateTimeFormatter.ofPattern("HH:mm");
+        LocalTime start = LocalTime.parse(starttime.getText().toString(), format);
+        LocalTime lunch = LocalTime.parse(lunchtime.getText().toString(), format);
+        LocalTime end = LocalTime.parse(endtime.getText().toString(), format);
+        LocalTime over = LocalTime.parse(overtime.getText().toString(), format);
+        LocalTime worktime = LocalTime.parse(WORKHOURS, format);
+        long startT = LocalTime.MIDNIGHT.until(start, ChronoUnit.MINUTES);
+        long lunchT = LocalTime.MIDNIGHT.until(lunch, ChronoUnit.MINUTES);
+        long endT = LocalTime.MIDNIGHT.until(end, ChronoUnit.MINUTES);
+        long overT = LocalTime.MIDNIGHT.until(over, ChronoUnit.MINUTES);
+        long workT = LocalTime.MIDNIGHT.until(worktime, ChronoUnit.MINUTES);
 
-        long ot = over.getTime() - midnight.getTime();
-        long lt = lunch.getTime() - midnight.getTime();
-        long wt = workhours.getTime() - midnight.getTime();
-        long worktime = wt + ot + lt;
-        long difference = end.getTime() - worktime;
+        long presentT = workT + lunchT + overT;
 
-        starttime.setText(convertSecondsToHMmSs(difference));
+        start = end.minus(presentT, ChronoUnit.MINUTES);
+
+        changeState = false;
+        starttime.setText(start.toString());
+        changeState = true;
     }
 
     private void calculateEndTime(EditText starttime, EditText lunchtime, EditText endtime, EditText overtime) throws ParseException {
-        SimpleDateFormat format = new SimpleDateFormat("HH:mm");
-        Date start = format.parse(String.valueOf(starttime.getText()));
-        Date lunch = format.parse(String.valueOf(lunchtime.getText()));
-        Date end = format.parse(String.valueOf(endtime.getText()));
-        Date over = format.parse(String.valueOf(overtime.getText()));
-        Date workhours = format.parse(WORKHOURS);
-        Date midnight = format.parse("00:00");
+        DateTimeFormatter format = DateTimeFormatter.ofPattern("HH:mm");
+        LocalTime start = LocalTime.parse(starttime.getText().toString(), format);
+        LocalTime lunch = LocalTime.parse(lunchtime.getText().toString(), format);
+        LocalTime end = LocalTime.parse(endtime.getText().toString(), format);
+        LocalTime over = LocalTime.parse(overtime.getText().toString(), format);
+        LocalTime worktime = LocalTime.parse(WORKHOURS, format);
+        long startT = LocalTime.MIDNIGHT.until(start, ChronoUnit.MINUTES);
+        long lunchT = LocalTime.MIDNIGHT.until(lunch, ChronoUnit.MINUTES);
+        long endT = LocalTime.MIDNIGHT.until(end, ChronoUnit.MINUTES);
+        long overT = LocalTime.MIDNIGHT.until(over, ChronoUnit.MINUTES);
+        long workT = LocalTime.MIDNIGHT.until(worktime, ChronoUnit.MINUTES);
 
+        long presentT = workT + lunchT + overT;
 
-        long ot = over.getTime() - midnight.getTime();
-        long lt = lunch.getTime() - midnight.getTime();
-        long wt = workhours.getTime() - midnight.getTime();
-        long worktime = wt + ot + lt;
-        long difference = start.getTime() + worktime;
+        end = start.plus(presentT, ChronoUnit.MINUTES);
 
-        endtime.setText(convertSecondsToHMmSs(difference));
+        changeState = false;
+        endtime.setText(end.toString());
+        changeState = true;
     }
 
     private void calculateOverTime(EditText starttime, EditText lunchtime, EditText endtime, EditText overtime) throws ParseException {
-        SimpleDateFormat format = new SimpleDateFormat("HH:mm");
-        Date start = format.parse(String.valueOf(starttime.getText()));
-        Date lunch = format.parse(String.valueOf(lunchtime.getText()));
-        Date end = format.parse(String.valueOf(endtime.getText()));
-        Date over = format.parse(String.valueOf(overtime.getText()));
-        Date workhours = format.parse(WORKHOURS);
-        Date midnight = format.parse("00:00");
+        DateTimeFormatter format = DateTimeFormatter.ofPattern("HH:mm");
+        LocalTime start = LocalTime.parse(starttime.getText().toString(), format);
+        LocalTime lunch = LocalTime.parse(lunchtime.getText().toString(), format);
+        LocalTime end = LocalTime.parse(endtime.getText().toString(), format);
+        LocalTime over = LocalTime.parse(overtime.getText().toString(), format);
+        LocalTime worktime = LocalTime.parse(WORKHOURS, format);
+        long startT = LocalTime.MIDNIGHT.until(start, ChronoUnit.MINUTES);
+        long lunchT = LocalTime.MIDNIGHT.until(lunch, ChronoUnit.MINUTES);
+        long endT = LocalTime.MIDNIGHT.until(end, ChronoUnit.MINUTES);
+        long overT = LocalTime.MIDNIGHT.until(over, ChronoUnit.MINUTES);
+        long workT = LocalTime.MIDNIGHT.until(worktime, ChronoUnit.MINUTES);
 
-        long difference = end.getTime() - start.getTime() - (lunch.getTime()- midnight.getTime());
+        overT = endT - startT - workT - lunchT;
+        over = LocalTime.MIDNIGHT.plus(overT,ChronoUnit.MINUTES);
 
-        //overtime.setText(convertSecondsToHMmSs(difference));
+        changeState = false;
+        overtime.setText(over.toString());
+        changeState = true;
     }
 
     @Override
